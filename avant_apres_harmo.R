@@ -1,3 +1,10 @@
+# run tests on DEMO files
+library(tidyverse)
+library(fabR)
+library(madshapR)
+library(Rmonize)
+library(crayon)
+
 avant_apres_harmo <- function(
   dossier = NULL, 
   harmonized_dossier = NULL, 
@@ -410,49 +417,40 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
 }
 
 
-# run tests on DEMO files
-library(tidyverse)
-library(fabR)
-library(madshapR)
-library(Rmonize)
-library(crayon)
-
-dataset_MELBOURNE <- madshapR_DEMO$dataset_MELBOURNE
-dataset_PARIS     <- madshapR_DEMO$dataset_PARIS
-dataset_TOKYO     <- madshapR_DEMO$dataset_TOKYO
-
-# create the inputs
-dossier <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
-data_proc_elem <- Rmonize_DEMO$`data_processing_elements - final`
-dataschema <- Rmonize_DEMO$`dataschema - final`
-
-# process harmonization
-harmonized_dossier <- harmo_process(dossier,dataschema,data_proc_elem)
-
-# avant apres harmo pour tous les dpe
-avant_apres_harmo(dossier,harmonized_dossier)
-
-# avant apres harmo pour tous des PE choisis parmi le dpe
-avant_apres_harmo(dossier,harmonized_dossier,
-                  data_proc_elem = data_proc_elem %>% slice(2:5))
-
-# avant apres harmo en comparant une partie de l'harmo 
-avant_apres_harmo(
-  dataset = dataset_MELBOURNE,
-  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE,
-  data_proc_elem = data_proc_elem %>% filter(input_dataset == 'dataset_MELBOURNE'))
-
-# avant apres harmo en comparant une partie de l'harmo : une variable
-avant_apres_harmo(
-  dataset = dataset_MELBOURNE['Gender'],
-  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
-
-# avant apres harmo en comparant une partie de l'harmo : plusieurs variables
-avant_apres_harmo(
-  dataset = dataset_MELBOURNE[c('Gender','prg_curr')],
-  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
-
-
-
-
+### Example
+# 
+# dataset_MELBOURNE <- madshapR_DEMO$dataset_MELBOURNE
+# dataset_PARIS     <- madshapR_DEMO$dataset_PARIS
+# dataset_TOKYO     <- madshapR_DEMO$dataset_TOKYO
+# 
+# # create the inputs
+# dossier <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
+# data_proc_elem <- Rmonize_DEMO$`data_processing_elements - final`
+# dataschema <- Rmonize_DEMO$`dataschema - final`
+# 
+# # process harmonization
+# harmonized_dossier <- harmo_process(dossier,dataschema,data_proc_elem)
+# 
+# # avant apres harmo pour tous les dpe
+# avant_apres_harmo(dossier,harmonized_dossier)
+# 
+# # avant apres harmo pour tous des PE choisis parmi le dpe
+# avant_apres_harmo(dossier,harmonized_dossier,
+#                   data_proc_elem = data_proc_elem %>% slice(2:5))
+# 
+# # avant apres harmo en comparant une partie de l'harmo 
+# avant_apres_harmo(
+#   dataset = dataset_MELBOURNE,
+#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE,
+#   data_proc_elem = data_proc_elem %>% filter(input_dataset == 'dataset_MELBOURNE'))
+# 
+# # avant apres harmo en comparant une partie de l'harmo : une variable
+# avant_apres_harmo(
+#   dataset = dataset_MELBOURNE['Gender'],
+#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
+# 
+# # avant apres harmo en comparant une partie de l'harmo : plusieurs variables
+# avant_apres_harmo(
+#   dataset = dataset_MELBOURNE[c('Gender','prg_curr')],
+#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
 
