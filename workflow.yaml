@@ -1,0 +1,6 @@
+uses: maelstrom-research/tests-functions-dev
+with:
+  keyword: "/copy"
+  targetRepository: maelstrom-research/tests-functions-dev
+  githubToken: ${{ secrets.GITHUB_TOKEN }}
+  contentOfNewIssue: 'prefix of newly created issue'
