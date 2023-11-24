@@ -2,6 +2,7 @@
 #' Convert input to a categorical variable.
 #'
 #' @description
+#' `r lifecycle::badge("experimental")`
 #' This function is used to convert a vector object to a categorical object. It
 #' Is analoguous to [as.factor()] function when the vector (variable) has no
 #' data dictionary associated. When it has, the characteristics of the category
@@ -27,8 +28,8 @@
 #' @import dplyr haven
 #' @importFrom rlang .data
 #'
-#' @export
-as_category <- function(x, category_attributes = c()){
+#' @noRd
+as_category <- function(x){
   
   # check if the col is a vector
   if(is.list(x)) stop("'list' object cannot be coerced to a category")

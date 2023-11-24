@@ -2,6 +2,7 @@
 #' Test if a column in a dataset is a categorical variable.
 #'
 #' @description
+#' `r lifecycle::badge("experimental")`
 #' Test if a column in a dataset is a categorical variable. This function mainly 
 #' helps validate input within other functions of the package.
 #'
@@ -22,7 +23,7 @@
 #' @import dplyr haven
 #' @importFrom rlang .data
 #'
-#' @export
+#' @noRd
 is_category <- function(column, threshold = NULL) {
   
   unique_column <- unique(column)

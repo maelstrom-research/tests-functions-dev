@@ -2,6 +2,7 @@
 #' Convert categorical input to a non-categorical variable.
 #'
 #' @description
+#' `r lifecycle::badge("experimental")`
 #' This function is used to convert a vector categorical object to a 
 #' non-categorical object. When it has, the 
 #' characteristics of the category is added to the data dictionary.
@@ -21,7 +22,7 @@
 #' @import dplyr haven
 #' @importFrom rlang .data
 #'
-#' @export
+#' @noRd
 drop_category <- function(x){
   
   # check if the col is a vector
@@ -45,6 +46,5 @@ drop_category <- function(x){
   attributes(x) = c(vec_att, fct_att)
   
   return(x)
-  # return(data_dict_extract(tibble(a = x)))
   
 }
