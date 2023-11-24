@@ -59,6 +59,5 @@ as_category <- function(x, category_attributes = c()){
   attributes(x_init) = c(fct_att['labels'],fct_att['class'],att)
   
   return(x_init)
-  # return(data_dict_extract(tibble(a = x)))
   
 }

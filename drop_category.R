@@ -8,11 +8,8 @@
 #'
 #' @param x object to be coerced.
 #'
-#' @seealso
-#' [as.factor()]
-#'
 #' @return
-#' A R Object of class haven_labelled.
+#' A R object.
 #'
 #' @examples
 #' {
