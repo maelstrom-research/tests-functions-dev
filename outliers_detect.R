@@ -4,18 +4,73 @@
 #' @description
 #' xxx xxx xxx
 #'
-#' @param dataset xxx xxx xxx
+#' @param dataset A dataset object.
 #' @param data_outlier_elements xxx xxx xxx
-#' @param data_dict xxx xxx xxx
+#' @param data_dict A list of data frame(s) representing metadata.
 #' 
-#' @details xxx xxx xxx
+#' @details 
+#' A dataset is a data table containing variables. A dataset object is a 
+#' data frame and can be associated with a data dictionary. If no 
+#' data dictionary is provided with a dataset, a minimum workable 
+#' data dictionary will be generated as needed within relevant functions.
+#' Identifier variable(s) for indexing can be specified by the user. 
+#' The id values must be non-missing and will be used in functions that 
+#' require it. If no identifier variable is specified, indexing is 
+#' handled automatically by the function.
+#' 
+#' A data dictionary contains the list of variables in a dataset and metadata 
+#' about the variables and can be associated with a dataset. A data dictionary 
+#' object is a list of data frame(s) named 'Variables' (required) and 
+#' 'Categories' (if any). To be usable in any function, the data frame 
+#' 'Variables' must contain at least the `name` column, with all unique and 
+#' non-missing entries, and the data frame 'Categories' must contain at least 
+#' the `variable` and `name` columns, with unique combination of 
+#' `variable` and `name`.
+#' 
+#' xxx xxx xxx
 #'
-#' @return xxx xxx xxx
+#' @return 
+#' A data frame with, for each statement, the values found in the dataset.
 #'
 #' @examples
 #' {
 #' 
-#' xxx xxx xxx
+#' library(dplyr)
+#' library(madshapR)
+#' library(fabR)
+#' # Example dataset
+#' set.seed(384122)
+#' dataset = mtcars
+#' dataset$entity_id <- make.names(rownames(mtcars))
+#' 
+#' dataset <- 
+#'   mtcars %>%
+#'   mutate(
+#'     carb = as_category(carb)) %>%
+#'   valueType_self_adjust() %>%
+#'   as_dataset('entity_id')
+#' 
+#' # Add date variable with random values
+#' dataset$date_end = sample(seq(as.Date("2020-01-01"), Sys.Date(), by="day"), 32)
+#' 
+#' data_dict <- data_dict_extract(dataset)
+#' data_dict$Categories$missing = c(FALSE,FALSE,FALSE,FALSE,TRUE,TRUE)
+#' 
+#' data_outlier_elements <-
+#'    tibble(variable = c("mpg"          , "carb"        , "disp"        , "hp"         ,
+#'                       "drat"         , "wt"          , "qsec"        , "vs"         ,
+#'                       "am"           , "am"          , "gear"        , "date_end"  ),
+#'          statement = c(">"           , ">"           , "statistical" ,"="           ,
+#'                        '!is.na'      , ">="          ,"="            , "!in"        ,
+#'                        "!in"         ,"!="           , "<"           , "!in"       ),
+#'          value     = c("20"          , "2"           , NA_character_ , "180"        ,
+#'                        NA_character_ , "5.25"        ,"0,1,3:6"      , "0:1"        ,
+#'                        "0:1"         , "dataset$vs"  , "2"           , "'2021-10-01':'2023-01-01'"),
+#'          check_na  = c(FALSE         , TRUE          , FALSE         , FALSE        ,
+#'                        FALSE         , FALSE         , TRUE          , FALSE        ,
+#'                        FALSE         , TRUE          , FALSE         , FALSE        ))
+#' 
+#' outliers_detect(dataset, data_outlier_elements,data_dict)
 #' 
 #' }
 #'
