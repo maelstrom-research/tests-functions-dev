@@ -38,13 +38,16 @@
 #' library(dplyr)
 #' library(madshapR)
 #' library(fabR)
+#' library(tidyr)
+#' library(stringr)
+#' library(crayon)
 #' # Example dataset
 #' set.seed(384122)
 #' dataset = mtcars
 #' dataset$entity_id <- make.names(rownames(mtcars))
 #' 
 #' dataset <- 
-#'   mtcars %>%
+#'   dataset %>%
 #'   mutate(
 #'     carb = as_category(carb)) %>%
 #'   valueType_self_adjust() %>%
