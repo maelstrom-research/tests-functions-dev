@@ -114,11 +114,12 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
   }else{
     data_dict <- as_data_dict_mlstr(data_dict)}
   
-  dataset <- if(is.null(col_id(dataset))){
+  if(is.null(col_id(dataset))){
+    dataset <- dataset %>% 
     add_index(dataset,"madshapR::index",.force = TRUE) %>%
       mutate("madshapR::index" = paste0('line ', .data$`madshapR::index`)) %>%
       as_dataset("madshapR::index")
-  } else dataset
+  }
   
   data_outlier_statements <- 
     data_outlier_elements %>% 
@@ -192,7 +193,7 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
     if(!is.na(data_outlier_statements[[i,'statement']])){
       test_statement <- 
         try(
-          dataset[parceval(data_outlier_statements[[i,'statement']]),] %>%
+          dataset[eval(parse(text = str_squish(data_outlier_statements[[i,'statement']]))),] %>%
             select(col_id(dataset), value = data_outlier_statements[[all_of(i),'name']]) %>%
             mutate(
               index = data_outlier_statements[[i,'index']],
@@ -201,6 +202,7 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
             select("index", col_id(dataset),"variable_name","statement", "value"), silent = TRUE)
       
       if(class(test_statement)[[1]] == "try-error"){
+        message(test_statement)
         test_statement <- tibble(
           index = data_outlier_statements[[i,'index']],
           variable_name = data_outlier_statements[[i,'name']],
@@ -228,7 +230,7 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
     if(!is.na(data_outlier_statements[[i,'check_na']])){
       test_na <- 
         try(
-          dataset[parceval(data_outlier_statements[[i,'check_na']]),] %>%
+          dataset[eval(parse(text = str_squish(data_outlier_statements[[i,'check_na']]))),] %>%
             select(col_id(dataset), value = data_outlier_statements[[all_of(i),'name']]) %>%
             mutate(
               index = data_outlier_statements[[i,'index']],
@@ -237,6 +239,7 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
             select("index",col_id(dataset),"variable_name","statement"), silent = TRUE)
       
       if(class(test_na)[[1]] == "try-error"){
+        message(test_na)
         test_na <- tibble(
           index = data_outlier_statements[[i,'index']],
           variable_name = data_outlier_statements[[i,'name']],
@@ -270,6 +273,7 @@ outliers_detect <- function(dataset, data_outlier_elements, data_dict = NULL){
             select("index",col_id(dataset),"variable_name","statement", "value"), silent = TRUE)
       
       if(class(test_stats)[[1]] == "try-error"){
+        message(test_stats)
         test_stats <- tibble(
           index = data_outlier_statements[[i,'index']],
           variable_name = data_outlier_statements[[i,'name']],
