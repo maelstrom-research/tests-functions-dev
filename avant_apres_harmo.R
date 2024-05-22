@@ -15,7 +15,8 @@ avant_apres_harmo <- function(
   harmonized_dataset = NULL,
   dataschema = attributes(harmonized_dossier)$`Rmonize::DataSchema`,
   col_dataset = names(dataset),
-  col_harmonized_dataset = names(harmonized_dataset)
+  col_harmonized_dataset = names(harmonized_dataset),
+  summarize_output = FALSE
 ){
   
   # internal function to extract names of objects in dpe
@@ -140,12 +141,12 @@ Possible values for `split_by`:\n
     data_proc_elem %>% 
     filter(data_proc_elem$input_dataset %in% name_datasets)
   
-  # split by parameter
-  data_proc_elem <- 
+  # split by study
+  dpe_dataset <- 
     data_proc_elem %>%
-    # group_by(pick(split_by)) %>% 
-    group_split(pick(all_of(split_by))) %>%
-    set_names(nm = sort(unique(data_proc_elem[[split_by]]))) %>%
+    # group_split(pick(all_of(split_by))) %>%
+    group_split(input_dataset) %>%
+    set_names(nm = sort(name_datasets)) %>%
     as.list()
   
   # initialize
@@ -157,106 +158,108 @@ Possible values for `split_by`:\n
   )
   
   # for each dataset
-  for(split_param in names(data_proc_elem)){
+  for(dataset_i in names(dpe_dataset)){
     # stop()}
 
     message(str_sub(paste0("\n",
 "--before/after of : ",
-crayon::bold(split_param)," -----------------------------------------------------"),1,81))
+crayon::bold(dataset_i)," -----------------------------------------------------"),1,81))
     
-    # extract the involved data_proc_elem lines
-    data_proc_elem_i <- 
-      data_proc_elem[[split_param]]
+    # extract the involved dpe_dataset lines
+    dpe_dataset_i <- 
+      dpe_dataset[[dataset_i]]
     
     # extract the dataset input
-    datasets_from  <- 
-      dossier[extract_var(data_proc_elem_i$input_dataset)] 
+    dataset_i_from <- 
+      dossier[unique(extract_var(dpe_dataset_i$input_dataset))][[1]]
     
     # extract the data_dict input
-    data_dicts_from  <- 
-      datasets_from %>%
-      lapply(data_dict_extract)
+    data_dict_i_from <- data_dict_extract(dataset_i_from)
     
     # extract the dataset output
-    datasets_to <-
-      harmonized_dossier[extract_var(data_proc_elem_i$input_dataset)]
+    dataset_i_to <-
+      harmonized_dossier[unique(extract_var(dpe_dataset_i$input_dataset))][[1]]
     
     # # initialize
-    # table_i = tibble()
+    table_i = tibble()
     
-    for(proc_j in seq_len(nrow(data_proc_elem_i))){
+    for(proc_j in seq_len(nrow(dpe_dataset_i))){
       # stop()}
        
       # for each line of the dpe :
       #   - read the rule, 
       
       var_to_j  <- 
-        data_proc_elem_i[proc_j,] %>% 
+        dpe_dataset_i[proc_j,] %>% 
         pull(.data$`dataschema_variable`) %>%
         extract_var %>%
         set_names('output_value')
       
-      dataset_from_j <- 
-        datasets_from[[
-          data_proc_elem_i[proc_j,] %>% 
-            pull(.data$`input_dataset`) %>%
-        extract_var]]
+      # dataset_from_j <- 
+      #   datasets_from[[
+      #     dpe_dataset_i[proc_j,] %>% 
+      #       pull(.data$`input_dataset`) %>%
+      #   extract_var]]
       
-      data_dict_from_j <- 
-        data_dicts_from[[
-          data_proc_elem_i[proc_j,] %>% 
-            pull(.data$`input_dataset`) %>%
-            extract_var]]
+      # data_dict_from_j <- 
+      #   data_dicts_from[[
+      #     dpe_dataset_i[proc_j,] %>% 
+      #       pull(.data$`input_dataset`) %>%
+      #       extract_var]]
       
-      dataset_to_j <- 
-        datasets_to[[
-          data_proc_elem_i[proc_j,] %>% 
-            pull(.data$`input_dataset`) %>%
-            extract_var]]
+      # dataset_to_j <- 
+      #   datasets_to[[
+      #     dpe_dataset_i[proc_j,] %>% 
+      #       pull(.data$`input_dataset`) %>%
+      #       extract_var]]
       
       err = try({
         
         rule_category = 
-          data_proc_elem_i[proc_j,] %>% 
+          dpe_dataset_i[proc_j,] %>% 
           pull(.data$`Mlstr_harmo::rule_category`)
         
         algorithm = 
-          data_proc_elem_i[proc_j,] %>% 
+          dpe_dataset_i[proc_j,] %>% 
           pull(.data$`Mlstr_harmo::algorithm`)
+        
+        dataset_name = 
+          dpe_dataset_i[proc_j,] %>% 
+          pull(.data$`input_dataset`)
         
         #   - extract variables (input and output) 
         vars_from_j <-     
           str_squish(unlist(strsplit(
-            data_proc_elem_i[proc_j,] %>% 
+            dpe_dataset_i[proc_j,] %>% 
               pull(.data$`input_variables`),split = ";"))) %>%
           extract_var %>% 
           set_names(paste0('input_value_',c(seq_len(length(.)))))
       
         #   - generate subdataset (input and output)
         if(toString(vars_from_j) %in% '__BLANK__') {
-          dataset_from_j  <- dataset_from_j %>% select(any_of(vars_from_j))
+          dataset_ij_from  <- dataset_i_from %>% select(any_of(vars_from_j))
         }else{
-          dataset_from_j  <- dataset_from_j %>% select(all_of(vars_from_j))
+          dataset_ij_from  <- dataset_i_from %>% select(all_of(vars_from_j))
         }
 
-        if(ncol(dataset_from_j) == 0){
-          dataset_from_j <- 
+        if(ncol(dataset_ij_from) == 0){
+          dataset_ij_from <- 
             tibble(
               `Rmonize::col` = 
-                rep(extract_var(data_proc_elem_i[proc_j,] %>% 
+                rep(extract_var(dpe_dataset_i[proc_j,] %>% 
                                   pull(.data$`Mlstr_harmo::algorithm`)),
-                    nrow(dataset_from_j)))}
+                    nrow(dataset_ij_from)))}
 
-        dataset_to_j <- 
-          dataset_to_j %>% 
+        dataset_ij_to <- 
+          dataset_i_to %>% 
           select(all_of(var_to_j))
         
         #   - generate subdata dict (input and output)
-        data_dict_from_j <- 
-          data_dict_from %>%
+        data_dict_ij_from <- 
+          data_dict_i_from %>%
           data_dict_filter(paste0('name %in% c("',paste0(c(vars_from_j),collapse = '","'),'")'))
         
-        data_dict_to_j <- 
+        data_dict_ij_to <- 
           dataschema %>%
           data_dict_filter(paste0('name %in% c("',paste0(c(var_to_j),collapse = '","'),'")'))
         
@@ -264,29 +267,31 @@ crayon::bold(split_param)," ----------------------------------------------------
         #     NA or categorical). Use preprocess function for that
         preprocess_to_j = 
           madshapR::dataset_preprocess(
-            distinct(dataset_to_j %>% setNames(var_to_j)),
-            data_dict_to_j) %>%
+            distinct(dataset_ij_to %>% setNames(var_to_j)),
+            data_dict_ij_to) %>%
           select(-index_in_dataset,-index_value) %>%
           distinct
         
         preprocess_from_j = 
           madshapR::dataset_preprocess(
-            distinct(dataset_from_j %>% setNames(vars_from_j)),
-            data_dict_from_j) %>%
+            distinct(dataset_ij_from %>% setNames(vars_from_j)),
+            data_dict_ij_from) %>%
           select(-index_in_dataset,-index_value) %>%
           distinct
         
         #   - combine them (output on the left, then input)      
         table_j <- 
-          dataset_to_j %>%
+          dataset_ij_to %>%
+          mutate(across(everything(), as.character)) %>%
           left_join(preprocess_to_j,by = c('output_value' ='value_var')) %>% 
           select(output_value, class_output = valid_class) %>%
-          bind_cols(dataset_from_j) %>%
+          bind_cols(dataset_ij_from) %>%
+          mutate(across(everything(), as.character)) %>%
           set_names(c(names(var_to_j),'class_output',names(vars_from_j))) %>%
           mutate(output_value = replace_na(output_value,'NA')) %>%
           mutate(across(starts_with('input_value_'), ~ replace_na(.,'NA'))) %>%
           mutate(
-            dataset = dataset_i,
+            dataset = dataset_name,
             output_var_name = var_to_j,
             rule_category = rule_category,
             algorithm = algorithm, 
@@ -403,30 +408,33 @@ crayon::bold(split_param)," ----------------------------------------------------
           
         }
         
-        # clean elements. if the input variable is unique, replace name of the 
-        # column input_value by the actual name of the variable
-        table_j = 
-          table_j %>%
-          mutate(
-            input_var_names = ifelse(!'input_value_2' %in% names(table_j),vars_from_j,input_var_names),
-            class_output = str_sub(class_output, 3,-1)) %>% 
-          distinct
-        
-        table_i = bind_rows(table_i,table_j)
       
       }, silent = TRUE)
       
       err <- ifelse((class(err)[1] == 'try-error'),'**failed**','')
       message(paste0(str_sub(paste0(
         str_trunc(paste0(
-          "    ",proc_j,"/",nrow(data_proc_elem_i)," : ",
+          "    ",proc_j,"/",nrow(dpe_dataset_i)," : ",
           var_to_j),width = 49,ellipsis = '[...]'),
         "                                       "),1,50)),bold(err))
+      
+      table_i = bind_rows(table_i,distinct(table_j))
     }
-    
     # bind elements
     table_all = bind_rows(table_all,distinct(table_i))
   }
+  
+  table_all
+  
+  
+  # clean elements. if the input variable is unique, replace name of the 
+  # column input_value by the actual name of the variable
+        table_j =
+          table_j %>%
+          mutate(
+            input_var_names = ifelse(!'input_value_2' %in% names(table_j),vars_from_j,input_var_names),
+            class_output = str_sub(class_output, 3,-1)) %>%
+          distinct
   
   # clean elements.
   #  - if one dataset, the column is deleted
@@ -463,9 +471,18 @@ library(tidyverse)
 library(Rmonize)
 library(crayon)
 
-dataset_MELBOURNE <- madshapR_DEMO$dataset_MELBOURNE
-dataset_PARIS     <- madshapR_DEMO$dataset_PARIS
-dataset_TOKYO     <- madshapR_DEMO$dataset_TOKYO
+dataset_MELBOURNE <-
+  data_dict_apply(madshapR_DEMO$dataset_MELBOURNE,madshapR_DEMO$data_dict_MELBOURNE) %>%
+  valueType_adjust(from = madshapR_DEMO$data_dict_MELBOURNE, to = .)
+dataset_PARIS <-
+  data_dict_apply(madshapR_DEMO$dataset_PARIS,madshapR_DEMO$data_dict_PARIS) %>%
+  valueType_adjust(from = madshapR_DEMO$data_dict_PARIS, to = .)
+dataset_TOKYO <-
+  data_dict_apply(madshapR_DEMO$dataset_TOKYO,madshapR_DEMO$data_dict_TOKYO) %>%
+  valueType_adjust(from = madshapR_DEMO$data_dict_TOKYO, to = .)
+
+# create the inputs
+dossier <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
 
 # create the inputs
 dossier        <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
@@ -478,7 +495,7 @@ harmonized_dossier <- harmo_process(dossier,dataschema,data_proc_elem)
 
 dossier                = dossier
 harmonized_dossier     = harmonized_dossier
-split_by               = "input_dataset"
+split_by               = "Mlstr_harmo::rule_category"
 data_proc_elem         = data_proc_elem
 dataset                = NULL
 data_dict              = NULL
@@ -486,6 +503,7 @@ harmonized_dataset     = NULL
 dataschema             = dataschema
 col_dataset            = names(dataset)
 col_harmonized_dataset = names(harmonized_dataset)
+summarize_output       = FALSE
 
 
 # avant apres harmo pour tous les dpe
