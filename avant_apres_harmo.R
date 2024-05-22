@@ -8,10 +8,11 @@ library(crayon)
 avant_apres_harmo <- function(
   dossier = NULL, 
   harmonized_dossier = NULL, 
+  data_proc_elem = attributes(harmonized_dossier)$`Rmonize::Data Processing Elements`,
+  split_by = NULL,
   dataset = NULL,
   data_dict = NULL,
   harmonized_dataset = NULL,
-  data_proc_elem = attributes(harmonized_dossier)$`Rmonize::Data Processing Elements`,
   dataschema = attributes(harmonized_dossier)$`Rmonize::DataSchema`,
   col_dataset = names(dataset),
   col_harmonized_dataset = names(harmonized_dataset)
@@ -27,8 +28,16 @@ avant_apres_harmo <- function(
     
     return(x)}
   
-  if(!is.null(dossier) & !is.null(dataset)) stop('no dossier AND dataset')
-  if(!is.null(harmonized_dossier) & !is.null(harmonized_dataset)) stop('no harmonized dossier AND harmonized dataset')
+  if(!is.null(dossier) & !is.null(dataset)) 
+    stop('no dossier AND dataset')
+  if(!is.null(harmonized_dossier) & !is.null(harmonized_dataset)) 
+    stop('no harmonized dossier AND harmonized dataset')
+  
+  if(!split_by %in%
+     c("dataschema_variable","input_dataset","Mlstr_harmo::rule_category"))
+    stop(call. = FALSE, "
+Possible values for `split_by`:\n 
+'dataschema_variable','input_dataset' or 'Mlstr_harmo::rule_category'")
   
   # case if user provides dataset and harmo dataset
   if(!is.null(dataset) & !is.null(harmonized_dataset)){
@@ -38,7 +47,8 @@ avant_apres_harmo <- function(
     
     if(is.null(data_proc_elem)){
       
-      if(length(col_harmonized_dataset) != 1) stop('col_harmonized_dataset must be unique')
+      if(length(col_harmonized_dataset) != 1) 
+        stop('col_harmonized_dataset must be unique')
       
       dataset_from  <- 
         dataset %>%
@@ -109,6 +119,7 @@ avant_apres_harmo <- function(
       dossier = dossier, 
       harmonized_dossier = harmonized_dossier,
       data_proc_elem = data_proc_elem,
+      split_by = split_by,
       dataschema = dataschema)
     )
   }
@@ -118,20 +129,24 @@ avant_apres_harmo <- function(
   # dataschema <- 
   #   attributes(harmonized_dossier)$`Rmonize::DataSchema`
   
-  data_proc_elem <-
-    data_proc_elem %>%
-    group_by(input_dataset) %>% group_split()
-  
-  names(data_proc_elem) = 
-    bind_rows(data_proc_elem) %>% arrange(input_dataset) %>% 
+  name_datasets <- 
+    data_proc_elem %>% arrange(input_dataset) %>% 
     pull(input_dataset) %>% unique %>% extract_var()
   
   # reduce complexity
-  dossier <-
-    dossier[intersect(names(dossier), names(data_proc_elem))]
+  dossier <- dossier[intersect(names(dossier), name_datasets)]
   
-  data_proc_elem <-
-    data_proc_elem[intersect(names(dossier), names(data_proc_elem))]
+  data_proc_elem <- 
+    data_proc_elem %>% 
+    filter(data_proc_elem$input_dataset %in% name_datasets)
+  
+  # split by parameter
+  data_proc_elem <- 
+    data_proc_elem %>%
+    # group_by(pick(split_by)) %>% 
+    group_split(pick(all_of(split_by))) %>%
+    set_names(nm = sort(unique(data_proc_elem[[split_by]]))) %>%
+    as.list()
   
   # initialize
   table_all = tibble(
@@ -142,34 +157,32 @@ avant_apres_harmo <- function(
   )
   
   # for each dataset
-  for(dataset_i in names(data_proc_elem)){
+  for(split_param in names(data_proc_elem)){
     # stop()}
-    
+
     message(str_sub(paste0("\n",
 "--before/after of : ",
-crayon::bold(dataset_i)," -----------------------------------------------------"),1,81))
-    
-    # extract the dataset input
-    dataset_from  <- 
-      dossier[[dataset_i]] %>%
-      mutate(across(everything(),as.character))
-    
-    # extract the data_dict input
-    data_dict_from  <- 
-      dossier[[dataset_i]] %>%
-      data_dict_extract()
-    
-    # extract the dataset output
-    dataset_to <- 
-      harmonized_dossier[[dataset_i]] %>%
-      mutate(across(everything(),as.character))
+crayon::bold(split_param)," -----------------------------------------------------"),1,81))
     
     # extract the involved data_proc_elem lines
     data_proc_elem_i <- 
-      data_proc_elem[[dataset_i]]
+      data_proc_elem[[split_param]]
     
-    # initialize
-    table_i = tibble()
+    # extract the dataset input
+    datasets_from  <- 
+      dossier[extract_var(data_proc_elem_i$input_dataset)] 
+    
+    # extract the data_dict input
+    data_dicts_from  <- 
+      datasets_from %>%
+      lapply(data_dict_extract)
+    
+    # extract the dataset output
+    datasets_to <-
+      harmonized_dossier[extract_var(data_proc_elem_i$input_dataset)]
+    
+    # # initialize
+    # table_i = tibble()
     
     for(proc_j in seq_len(nrow(data_proc_elem_i))){
       # stop()}
@@ -183,11 +196,33 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
         extract_var %>%
         set_names('output_value')
       
+      dataset_from_j <- 
+        datasets_from[[
+          data_proc_elem_i[proc_j,] %>% 
+            pull(.data$`input_dataset`) %>%
+        extract_var]]
+      
+      data_dict_from_j <- 
+        data_dicts_from[[
+          data_proc_elem_i[proc_j,] %>% 
+            pull(.data$`input_dataset`) %>%
+            extract_var]]
+      
+      dataset_to_j <- 
+        datasets_to[[
+          data_proc_elem_i[proc_j,] %>% 
+            pull(.data$`input_dataset`) %>%
+            extract_var]]
+      
       err = try({
         
         rule_category = 
           data_proc_elem_i[proc_j,] %>% 
           pull(.data$`Mlstr_harmo::rule_category`)
+        
+        algorithm = 
+          data_proc_elem_i[proc_j,] %>% 
+          pull(.data$`Mlstr_harmo::algorithm`)
         
         #   - extract variables (input and output) 
         vars_from_j <-     
@@ -199,9 +234,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
       
         #   - generate subdataset (input and output)
         if(toString(vars_from_j) %in% '__BLANK__') {
-          dataset_from_j  <- dataset_from %>% select(any_of(vars_from_j))          
+          dataset_from_j  <- dataset_from_j %>% select(any_of(vars_from_j))
         }else{
-          dataset_from_j  <- dataset_from %>% select(all_of(vars_from_j))
+          dataset_from_j  <- dataset_from_j %>% select(all_of(vars_from_j))
         }
 
         if(ncol(dataset_from_j) == 0){
@@ -211,11 +246,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
                 rep(extract_var(data_proc_elem_i[proc_j,] %>% 
                                   pull(.data$`Mlstr_harmo::algorithm`)),
                     nrow(dataset_from_j)))}
-        
-        var_to_j  <- var_to_j
 
         dataset_to_j <- 
-          dataset_to %>% 
+          dataset_to_j %>% 
           select(all_of(var_to_j))
         
         #   - generate subdata dict (input and output)
@@ -256,6 +289,7 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             dataset = dataset_i,
             output_var_name = var_to_j,
             rule_category = rule_category,
+            algorithm = algorithm, 
             cut = '||',
             input_var_names = 
               paste0(paste0(names(vars_from_j)," = ", vars_from_j),collapse = ' ; ')
@@ -266,6 +300,7 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             class_output,
             input_var_names, 
             rule_category,
+            algorithm,
             ` ` = cut,
             output_value,
             `  ` = cut,
@@ -300,8 +335,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             arrange(across(c('output_value',starts_with('input_value_')))) %>% 
             distinct() %>%
             select(
-              dataset,output_var_name,class_output,
-              input_var_names,rule_category,` `,output_value,`  `,input_value_1)
+              'dataset','output_var_name','class_output',
+              'input_var_names','rule_category'," ",'algorithm','output_value',"  ",
+              'input_value_1')
         }
         
         if(rule_category == 'case_when') {
@@ -310,8 +346,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             arrange(across(c('output_value',starts_with('input_value_')))) %>% 
             distinct() %>%
             select(
-              dataset,output_var_name,class_output,
-              input_var_names,rule_category,` `,output_value,`  `,starts_with('input_value_'))
+              'dataset','output_var_name','class_output',
+              'input_var_names','rule_category'," ",'algorithm','output_value',"  ",
+              starts_with('input_value_'))
         }
         
         
@@ -322,8 +359,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             arrange(across(c('output_value',starts_with('input_value_')))) %>% 
             distinct() %>%
             select(
-              dataset,output_var_name,class_output,
-              input_var_names,rule_category,` `,output_value,`  `,starts_with('input_value_'))
+              'dataset','output_var_name','class_output',
+              'input_var_names','rule_category'," ",'algorithm','output_value',"  ",
+              starts_with('input_value_'))
         }
         
         if(rule_category == 'other') {
@@ -332,8 +370,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             arrange(across(c('output_value',starts_with('input_value_')))) %>% 
             distinct() %>%
             select(
-              dataset,output_var_name,class_output,
-              input_var_names,rule_category,` `,output_value,`  `,starts_with('input_value_'))
+              'dataset','output_var_name','class_output',
+              'input_var_names','rule_category'," ",'algorithm','output_value',"  ",
+              starts_with('input_value_'))
         }
         
         
@@ -350,6 +389,7 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
               output_var_name = output_var_name,
               input_var_names = input_var_names,
               rule_category = rule_category,
+              algorithm = algorithm,
               ` ` = ` `,
               output_value = paste0(output_value,collapse = ', '),
               `  ` = `  `,
@@ -357,8 +397,9 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
             distinct %>%
             mutate(input_value_1 = 'identical') %>%
             select(
-              dataset,output_var_name,class_output,
-              input_var_names,rule_category,` `,output_value,`  `,input_value_1)
+              'dataset','output_var_name','class_output',
+              'input_var_names','rule_category'," ",'algorithm','output_value',"  ",
+              'input_value_1')
           
         }
         
@@ -417,40 +458,61 @@ crayon::bold(dataset_i)," -----------------------------------------------------"
 }
 
 
-### Example
-# 
-# dataset_MELBOURNE <- madshapR_DEMO$dataset_MELBOURNE
-# dataset_PARIS     <- madshapR_DEMO$dataset_PARIS
-# dataset_TOKYO     <- madshapR_DEMO$dataset_TOKYO
-# 
-# # create the inputs
-# dossier <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
-# data_proc_elem <- Rmonize_DEMO$`data_processing_elements - final`
-# dataschema <- Rmonize_DEMO$`dataschema - final`
-# 
-# # process harmonization
-# harmonized_dossier <- harmo_process(dossier,dataschema,data_proc_elem)
-# 
-# # avant apres harmo pour tous les dpe
-# avant_apres_harmo(dossier,harmonized_dossier)
-# 
-# # avant apres harmo pour tous des PE choisis parmi le dpe
-# avant_apres_harmo(dossier,harmonized_dossier,
-#                   data_proc_elem = data_proc_elem %>% slice(2:5))
-# 
-# # avant apres harmo en comparant une partie de l'harmo 
-# avant_apres_harmo(
-#   dataset = dataset_MELBOURNE,
-#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE,
-#   data_proc_elem = data_proc_elem %>% filter(input_dataset == 'dataset_MELBOURNE'))
-# 
-# # avant apres harmo en comparant une partie de l'harmo : une variable
-# avant_apres_harmo(
-#   dataset = dataset_MELBOURNE['Gender'],
-#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
-# 
-# # avant apres harmo en comparant une partie de l'harmo : plusieurs variables
-# avant_apres_harmo(
-#   dataset = dataset_MELBOURNE[c('Gender','prg_curr')],
-#   harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
+## Example
+library(tidyverse)
+library(Rmonize)
+library(crayon)
+
+dataset_MELBOURNE <- madshapR_DEMO$dataset_MELBOURNE
+dataset_PARIS     <- madshapR_DEMO$dataset_PARIS
+dataset_TOKYO     <- madshapR_DEMO$dataset_TOKYO
+
+# create the inputs
+dossier        <- dossier_create(list(dataset_MELBOURNE,dataset_PARIS,dataset_TOKYO))
+data_proc_elem <- data_proc_elem_init <- Rmonize_DEMO$`data_processing_elements - final`
+dataschema     <- Rmonize_DEMO$`dataschema - final`
+
+# process harmonization
+harmonized_dossier <- harmo_process(dossier,dataschema,data_proc_elem)
+
+
+dossier                = dossier
+harmonized_dossier     = harmonized_dossier
+split_by               = "input_dataset"
+data_proc_elem         = data_proc_elem
+dataset                = NULL
+data_dict              = NULL
+harmonized_dataset     = NULL
+dataschema             = dataschema
+col_dataset            = names(dataset)
+col_harmonized_dataset = names(harmonized_dataset)
+
+
+# avant apres harmo pour tous les dpe
+test_avant_apres <- 
+  avant_apres_harmo(
+    dossier,
+    harmonized_dossier)
+
+# avant apres harmo pour tous les dpe choisis parmi
+avant_apres_harmo(
+  dossier,
+  harmonized_dossier,
+  data_proc_elem = data_proc_elem %>% slice(2:5))
+
+# avant apres harmo en comparant une partie de l'harmo
+avant_apres_harmo(
+  dataset = dataset_MELBOURNE,
+  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE,
+  data_proc_elem = data_proc_elem %>% filter(input_dataset == 'dataset_MELBOURNE'))
+
+# avant apres harmo en comparant une partie de l'harmo : une variable
+avant_apres_harmo(
+  dataset = dataset_MELBOURNE['Gender'],
+  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
+
+# avant apres harmo en comparant une partie de l'harmo : plusieurs variables
+avant_apres_harmo(
+  dataset = dataset_MELBOURNE[c('Gender','prg_curr')],
+  harmonized_dataset = harmonized_dossier$dataset_MELBOURNE['sdc_sex'])
 
